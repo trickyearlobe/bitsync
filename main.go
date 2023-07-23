@@ -67,7 +67,7 @@ func pullRepo(repoDir, mainBranch string) {
   fmt.Printf("  Pulling %v branch %v\n", repoDir, mainBranch)
   out, err := exec.Command("git", "-C", repoDir, "fetch", "origin", mainBranch).CombinedOutput()
   if err != nil {
-    fmt.Printf("    Error: %v\n", string(out))
+    fmt.Printf("%v\n", string(out))
   }
 }
 
@@ -75,7 +75,7 @@ func cloneRepo(repoDir, workspace, project, repo string) {
   fmt.Printf("  Cloning %v/%v/%v into %v\n", workspace, project, repo, repoDir)
   out, err := exec.Command("git", "clone", "git@bitbucket.org:"+workspace+"/"+repo, repoDir).CombinedOutput()
   if err != nil {
-    fmt.Printf("    Error: %v\n", string(out))
+    fmt.Printf("%v\n", string(out))
   }
 }
 
