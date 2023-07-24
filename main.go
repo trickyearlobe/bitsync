@@ -65,7 +65,7 @@ func processRepo(workspace, project, repo, mainBranch string) {
 
 func pullRepo(repoDir, mainBranch string) {
   fmt.Printf("  Pulling %v branch %v\n", repoDir, mainBranch)
-  out, err := exec.Command("git", "-C", repoDir, "fetch", "origin", mainBranch).CombinedOutput()
+  out, err := exec.Command("git", "-C", repoDir, "pull", "origin", mainBranch+":"+mainBranch).CombinedOutput()
   if err != nil {
     fmt.Printf("%v\n", string(out))
   }
