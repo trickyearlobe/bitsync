@@ -14,7 +14,7 @@ Then use GO to install BitSync.
 go install github.com/trickyearlobe/bitsync@latest
 ```
 
-The BitSync binary will be downloaded, compiled and installed to `~/go/bin/bitsync` so make sure it gets added to your path (ideally into a shell startup script like `.bash_profile` or `.zshrc`
+The BitSync binary will be downloaded, compiled and installed to `~/go/bin/bitsync` so make sure it gets added to your path, ideally into a shell startup script like `.bash_profile` or `.zshrc`
 
 ```bash
 export PATH=$PATH:~/go/bin
