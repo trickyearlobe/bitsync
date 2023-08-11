@@ -23,12 +23,12 @@ func main() {
     }
 }
 
-func processWorkspace(workkspace string) {
-    fmt.Printf("Processing workspace %v\n", workkspace)
-    repos := FetchBitbucketRepos(os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"), workkspace)
+func processWorkspace(workspace string) {
+    fmt.Printf("Processing workspace %v\n", workspace)
+    repos := FetchBitbucketRepos(os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"), workspace)
 
     for _, repo := range repos {
-        processRepo(workkspace, repo.Project.Key, repo.Slug, repo.Mainbranch.Name)
+        processRepo(workspace, repo.Project.Key, repo.Slug, repo.Mainbranch.Name)
     }
     fmt.Println("DONE")
 }
