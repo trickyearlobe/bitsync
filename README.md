@@ -24,7 +24,13 @@ export PATH=$PATH:~/go/bin
 
 The tool clones repos using SSH so you will need to generate and add SSH keys to your bitbucket account.
 
-You will also need to add an `AppPass` to your bitbucket user so that bitsync can access the API. You can do this by logging in to BitBucket, and clicking the gears icon. Make sure you also check your user ID in account settings... it's usually not the eMail address you use to log in.
+You will also need to add an `AppPass` to your bitbucket user so that bitsync can access the API.
+
+* You can do this by logging in to BitBucket, clicking the gears icon and navigating to `App passwords`
+* Make sure you also check your user ID in account settings... it's usually not the eMail address you use to log in.
+* Make sure the `AppPass` has enough permissions to list your organisations and access the projects and repos inside
+
+Finally, pass the credentials as environment variables and sync your repos.
 
 ```bash
 export BBUSER=ebeneezer
