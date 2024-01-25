@@ -20,17 +20,18 @@ The BitSync binary will be downloaded, compiled and installed to `~/go/bin/bitsy
 export PATH=$PATH:~/go/bin
 ```
 
+Finally, make sure you have an up to date command line version of `git` installed on your PATH (this app shell's out to it)
+
+## Configuring Bitbucket for access
+
+* In BitBucket WebUI click the gear icon and select `Personal Bitbucket settings`
+* In `Account settings`, make a note of your `username` under Bitbucket Profile Settings. It is usually different to your eMail.
+* In `SSH keys`, upload your SSH public key to enable GIT to authenticate with bitbucket over SSH (use `ssh-keygen` if you don't have one in `~/.ssh/id_rsa.pub` or similar)
+* In `App passwords` create and copy an App password which has read rights to account, workspace membership, projects and repositories so that we can autodiscover your repos.
+
 ## Using
 
-The tool clones repos using SSH so you will need to generate and add SSH keys to your bitbucket account.
-
-You will also need to add an `AppPass` to your bitbucket user so that bitsync can access the API.
-
-* You can do this by logging in to BitBucket, clicking the gears icon and navigating to `App passwords`
-* Make sure you also check your user ID in account settings... it's usually not the eMail address you use to log in.
-* Make sure the `AppPass` has enough permissions to list your organisations and access the projects and repos inside
-
-Finally, pass the credentials as environment variables and sync your repos.
+Pass the credentials as environment variables and sync your repos.
 
 ```bash
 export BBUSER=ebeneezer
