@@ -14,6 +14,7 @@ Thumbs.db
 *.lnk
 
 # Binaries for programs and plugins
+bitsync
 *.exe
 *.exe~
 *.dll
