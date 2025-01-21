@@ -17,7 +17,7 @@ func main() {
     }
 
     // Iterate the workspaces we have access to
-    workspaces := fetchOrganisations(os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"))
+    workspaces := FetchBitBucketOrganisations(os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"))
     for _, workspace := range workspaces {
         processWorkspace(workspace)
     }
