@@ -61,6 +61,7 @@ func processGitHubOrgs() {
         var ghorgs []string
         ghorg := os.Getenv("GHORG")
         if ghorg != "" {
+            fmt.Printf("GHORG is set, processing selected GitHub orgs\n")
             ghorgs = strings.Split(ghorg, ",")
         } else {
             fmt.Printf("GHORG is not set, processing all GitHub orgs\n")
@@ -99,6 +100,7 @@ func processBitBucketWorkspaces() {
     if bbuser == "" || bbapppass == "" {
         fmt.Println("BBUSER and/or BBAPPPASS not set, skipping BitBucket repositories")
     } else {
+        fmt.Println("BBUSER and BBAPPPASS are set, processing BitBucket repositories")
         var bbWorkspaces []string
         if bborg == "" {
             fmt.Println("BBORG is not set, processing all BitBucket Workspaces")
