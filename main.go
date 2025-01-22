@@ -6,6 +6,7 @@ import (
     "os/exec"
     "path/filepath"
     "strings"
+    "time"
 )
 
 func cloneOrSyncGitRepo(repoDir, cloneUrl, mainBranch string) {
@@ -123,6 +124,11 @@ func checkErr(err error) {
 }
 
 func main() {
+    startTime := time.Now()
+    fmt.Printf("Starting BitSync process at %v\n", startTime)
     processGitHubOrgs()
     processBitBucketWorkspaces()
+    endTime := time.Now()
+    fmt.Printf("Finished BitSync process at %v\n", endTime)
+    fmt.Printf("Elapsed time %v\n", endTime.Sub(startTime))
 }
