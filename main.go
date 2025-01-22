@@ -11,7 +11,6 @@ import (
 func cloneOrSyncGitRepo(repoDir, cloneUrl, mainBranch string) {
     fmt.Printf("  Processing git repo %s from %s\n", repoDir, cloneUrl)
     if _, err := os.Stat(repoDir); err != nil {
-        fmt.Println("    Cloning...")
         out, err := exec.Command("git", "clone", cloneUrl, repoDir).CombinedOutput()
         if err != nil {
             fmt.Println("Error during clone: " + string(out))
@@ -73,7 +72,26 @@ func processGitHubOrgs() {
     }
 }
 
-func processBitBucketOrgs() {
+func processBitBucketRepo(workspace string, repo BitbucketRepository) {
+    homeDir, err := os.UserHomeDir()
+    checkErr(err)
+    BitBucketProjectPath := filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key)
+    BitBucketRepoPath := filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key, repo.Slug)
+    BitBucketCloneUrl := "git@bitbucket.org:" + workspace + "/" + repo.Slug
+    err = os.MkdirAll(BitBucketProjectPath, 0750)
+    checkErr(err)
+    cloneOrSyncGitRepo(BitBucketRepoPath, BitBucketCloneUrl, repo.Mainbranch.Name)
+}
+
+func processBitBucketWorkspace(bbUser, bbAppPass, bbWorkspace string) {
+    fmt.Printf("Processing BitBucket workspace %v\n", bbWorkspace)
+    repos := FetchBitbucketRepos(bbUser, bbAppPass, bbWorkspace)
+    for _, repo := range repos {
+        processBitBucketRepo(bbWorkspace, repo)
+    }
+}
+
+func processBitBucketWorkspaces() {
     bbuser := os.Getenv("BBUSER")
     bbapppass := os.Getenv("BBAPPPASS")
     bborg := os.Getenv("BBORG")
@@ -81,68 +99,17 @@ func processBitBucketOrgs() {
     if bbuser == "" || bbapppass == "" {
         fmt.Println("BBUSER and/or BBAPPPASS not set, skipping BitBucket repositories")
     } else {
-        var bborgs []string
+        var bbWorkspaces []string
         if bborg == "" {
-            fmt.Println("BBORG is not set, processing all BitBucket Organisations")
-            bborgs = FetchBitBucketOrganisations(bbuser, bbapppass)
+            fmt.Println("BBORG is not set, processing all BitBucket Workspaces")
+            bbWorkspaces = FetchBitBucketOrganisations(bbuser, bbapppass)
         } else {
-            fmt.Println("BBORG is set, processing selected BitBucket repositories")
-            bborgs = strings.Split(bborg, ",")
+            fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
+            bbWorkspaces = strings.Split(bborg, ",")
         }
-        for _, bborg := range bborgs {
-            processWorkspace(bborg)
+        for _, bbWorkspace := range bbWorkspaces {
+            processBitBucketWorkspace(bbuser, bbapppass, bbWorkspace)
         }
-    }
-}
-
-func main() {
-    processGitHubOrgs()
-    processBitBucketOrgs()
-}
-
-func processWorkspace(workspace string) {
-    fmt.Printf("Processing BitBucket workspace %v\n", workspace)
-    repos := FetchBitbucketRepos(os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"), workspace)
-
-    for _, repo := range repos {
-        processRepo(workspace, repo.Project.Key, repo.Slug, repo.Mainbranch.Name)
-    }
-    fmt.Println("DONE")
-}
-
-func processRepo(workspace, project, repo, mainBranch string) {
-    home, err := os.UserHomeDir()
-    checkErr(err)
-
-    projectDir := filepath.Join(home, "repos", workspace, project)
-    repoDir := filepath.Join(home, "repos", "bitbucket", workspace, project, repo)
-
-    // Make the project directory
-    err = os.MkdirAll(projectDir, 0750)
-    checkErr(err)
-
-    // Check if the repo is cloned
-    if _, err = os.Stat(repoDir); err != nil {
-        cloneRepo(repoDir, workspace, project, repo)
-    } else {
-        pullRepo(repoDir, mainBranch)
-    }
-
-}
-
-func pullRepo(repoDir, mainBranch string) {
-    fmt.Printf("  Pulling %v branch %v\n", repoDir, mainBranch)
-    out, err := exec.Command("git", "-C", repoDir, "pull", "origin", mainBranch+":"+mainBranch).CombinedOutput()
-    if err != nil {
-        fmt.Printf("%v\n", string(out))
-    }
-}
-
-func cloneRepo(repoDir, workspace, project, repo string) {
-    fmt.Printf("  Cloning %v/%v/%v into %v\n", workspace, project, repo, repoDir)
-    out, err := exec.Command("git", "clone", "git@bitbucket.org:"+workspace+"/"+repo, repoDir).CombinedOutput()
-    if err != nil {
-        fmt.Printf("%v\n", string(out))
     }
 }
 
@@ -151,4 +118,9 @@ func checkErr(err error) {
         fmt.Printf("An error occured. %v\n", err)
         os.Exit(1)
     }
+}
+
+func main() {
+    processGitHubOrgs()
+    processBitBucketWorkspaces()
 }
