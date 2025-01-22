@@ -9,7 +9,24 @@ import (
     "time"
 )
 
+func mirrorGitRepo(repoDir, cloneUrl, mainBranch string) {
+    fmt.Printf("  Bare mirror %s from %s\n", repoDir, cloneUrl)
+    out, err := exec.Command("rm", "-rf", repoDir).CombinedOutput()
+    if err != nil {
+        fmt.Println("Error during delete directory: " + string(out))
+    }
+    out, err = exec.Command("git", "clone", "--mirror", cloneUrl, repoDir).CombinedOutput()
+    if err != nil {
+        fmt.Println("Error during mirror: " + string(out))
+    }
+}
+
 func cloneOrSyncGitRepo(repoDir, cloneUrl, mainBranch string) {
+    mirror := os.Getenv("BITSYNC_MIRROR")
+    if mirror == "true" {
+        mirrorGitRepo(repoDir, cloneUrl, mainBranch)
+        return
+    }
     fmt.Printf("  Processing git repo %s from %s\n", repoDir, cloneUrl)
     if _, err := os.Stat(repoDir); err != nil {
         out, err := exec.Command("git", "clone", cloneUrl, repoDir).CombinedOutput()

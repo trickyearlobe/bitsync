@@ -39,6 +39,25 @@ Finally, make sure you have an up to date command line version of `git` installe
 * Scroll down in `settings` to `Developer Settings` and create a `personal access token (classic)`
 * Grant the token sufficient rights to access your github orgs/repos and configure SSO if necessary (just like we did for the SSH key)
 
+## Bare mirroring (optional)
+
+If `BITSYNC_MIRROR` is set to `true` then cloning will happen with the `--mirror` git option. This has the effects
+
+* Repo's will be deleted if they exist
+* The repos will be cloned bare with the mirror flag set
+* All branches and tags will be mirrored
+
+This is effectively a full archive of the repo, but it cannot be used for normal git workflows as it has the following git config options set
+
+```aiignore
+[core]
+	bare = true
+
+[remote "origin"]
+	fetch = +refs/*:refs/*
+	mirror = true
+```
+
 ## Using
 
 Pass the credentials, and optional org lists, as environment variables and sync your repos.
