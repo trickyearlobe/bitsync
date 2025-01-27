@@ -55,8 +55,16 @@ func cloneOrSyncGitRepo(repoDir, cloneUrl, mainBranch string) {
 func processGitHubRepo(repo GitHubRepository) {
     homeDir, err := os.UserHomeDir()
     checkErr(err)
-    gitHubOrgPath := filepath.Join(homeDir, "repos", "github", repo.Owner.Login)
-    gitHubRepoPath := filepath.Join(homeDir, "repos", "github", repo.Owner.Login, repo.Name)
+    var gitHubRepoPath, gitHubOrgPath string
+    mirror := os.Getenv("BITSYNC_MIRROR")
+    if mirror == "true" {
+        gitHubOrgPath = filepath.Join(homeDir, "mirrors", "github", repo.Owner.Login)
+        gitHubRepoPath = filepath.Join(homeDir, "mirrors", "github", repo.Owner.Login, repo.Name)
+
+    } else {
+        gitHubOrgPath = filepath.Join(homeDir, "repos", "github", repo.Owner.Login)
+        gitHubRepoPath = filepath.Join(homeDir, "repos", "github", repo.Owner.Login, repo.Name)
+    }
     err = os.MkdirAll(gitHubOrgPath, 0750)
     checkErr(err)
     cloneOrSyncGitRepo(gitHubRepoPath, repo.SSHUrl, repo.DefaultBranch)
@@ -94,8 +102,16 @@ func processGitHubOrgs() {
 func processBitBucketRepo(workspace string, repo BitbucketRepository) {
     homeDir, err := os.UserHomeDir()
     checkErr(err)
-    BitBucketProjectPath := filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key)
-    BitBucketRepoPath := filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key, repo.Slug)
+    var BitBucketRepoPath, BitBucketProjectPath string
+    mirror := os.Getenv("BITSYNC_MIRROR")
+    if mirror == "true" {
+        BitBucketProjectPath = filepath.Join(homeDir, "mirrors", "bitbucket", workspace, repo.Project.Key)
+        BitBucketRepoPath = filepath.Join(homeDir, "mirrors", "bitbucket", workspace, repo.Project.Key, repo.Slug)
+
+    } else {
+        BitBucketProjectPath = filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key)
+        BitBucketRepoPath = filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key, repo.Slug)
+    }
     BitBucketCloneUrl := "git@bitbucket.org:" + workspace + "/" + repo.Slug
     err = os.MkdirAll(BitBucketProjectPath, 0750)
     checkErr(err)

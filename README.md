@@ -43,9 +43,10 @@ Finally, make sure you have an up to date command line version of `git` installe
 
 If `BITSYNC_MIRROR` is set to `true` then cloning will happen with the `--mirror` git option. This has the effects
 
-* Repo's will be deleted if they exist
+* Repo's will be deleted before cloning if they exist
 * The repos will be cloned bare with the mirror flag set
 * All branches and tags will be mirrored
+* Mirrors will be placed under `~/mirrors` instead of `~/repos`
 
 This is effectively a full archive of the repo, but it cannot be used for normal git workflows as it has the following git config options set
 
