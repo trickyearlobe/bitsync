@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,23 @@ import (
 	"sync"
 	"time"
 )
+
+type apiError struct {
+	Method     string
+	URL        string
+	Status     string
+	StatusCode int
+	Body       string
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("%s %s: %s: %s", e.Method, e.URL, e.Status, e.Body)
+}
+
+func is404(err error) bool {
+	var apiErr *apiError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
+}
 
 // fetchAPI performs the HTTP request, validates the status, and returns the
 // body plus the URL extracted from a `Link: <...>; rel="next"` header (empty
@@ -28,7 +46,13 @@ func fetchAPI(req *http.Request) ([]byte, string, error) {
 		return nil, "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("%s %s: %s: %s", req.Method, req.URL, resp.Status, string(body))
+		return nil, "", &apiError{
+			Method:     req.Method,
+			URL:        req.URL.String(),
+			Status:     resp.Status,
+			StatusCode: resp.StatusCode,
+			Body:       string(body),
+		}
 	}
 	return body, parseNextLink(resp.Header.Get("Link")), nil
 }

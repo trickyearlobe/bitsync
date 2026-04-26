@@ -7,9 +7,22 @@ import (
     "time"
 )
 
-func FetchGitHubRepos(apiToken, organisation string) (GitHubRepositories, error) {
+// FetchGitHubRepos resolves name as an org first, falling back to a user if
+// the org endpoint returns 404. Returns a clean error only when neither exists.
+func FetchGitHubRepos(apiToken, name string) (GitHubRepositories, error) {
+    repos, err := fetchGitHubReposFromURL(apiToken, fmt.Sprintf("https://api.github.com/orgs/%v/repos?per_page=100", name))
+    if !is404(err) {
+        return repos, err
+    }
+    repos, err = fetchGitHubReposFromURL(apiToken, fmt.Sprintf("https://api.github.com/users/%v/repos?per_page=100", name))
+    if is404(err) {
+        return nil, fmt.Errorf("no GitHub org or user named %q", name)
+    }
+    return repos, err
+}
+
+func fetchGitHubReposFromURL(apiToken, url string) (GitHubRepositories, error) {
     var repositories GitHubRepositories
-    url := fmt.Sprintf("https://api.github.com/orgs/%v/repos?per_page=100", organisation)
     for url != "" {
         page, next, err := fetchGitHubReposPage(apiToken, url)
         if err != nil {
