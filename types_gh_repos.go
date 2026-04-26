@@ -3,34 +3,40 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "io"
     "net/http"
     "time"
 )
 
-func FetchGitHubRepos(apiToken, organisation string) GitHubRepositories {
+func FetchGitHubRepos(apiToken, organisation string) (GitHubRepositories, error) {
     var repositories GitHubRepositories
     url := fmt.Sprintf("https://api.github.com/orgs/%v/repos?per_page=100", organisation)
-    repoPage := FetchGitHubReposPage(apiToken, url)
-    repositories = repoPage
-    return repositories
+    for url != "" {
+        page, next, err := fetchGitHubReposPage(apiToken, url)
+        if err != nil {
+            return nil, err
+        }
+        repositories = append(repositories, page...)
+        url = next
+    }
+    return repositories, nil
 }
 
-func FetchGitHubReposPage(apiToken, url string) GitHubRepositories {
-    var Response GitHubRepositories
-    client := http.Client{}
+func fetchGitHubReposPage(apiToken, url string) (GitHubRepositories, string, error) {
     req, err := http.NewRequest("GET", url, nil)
-    checkErr(err)
+    if err != nil {
+        return nil, "", err
+    }
     req.Header.Set("Authorization", "bearer "+apiToken)
-    req.Header.Set("Accept", "application/json")
-    resp, err := client.Do(req)
-    checkErr(err)
-    defer resp.Body.Close()
-    bodyText, err := io.ReadAll(resp.Body)
-    checkErr(err)
-    err = json.Unmarshal(bodyText, &Response)
-    checkErr(err)
-    return Response
+    req.Header.Set("Accept", "application/vnd.github+json")
+    body, next, err := fetchAPI(req)
+    if err != nil {
+        return nil, "", err
+    }
+    var page GitHubRepositories
+    if err := json.Unmarshal(body, &page); err != nil {
+        return nil, "", err
+    }
+    return page, next, nil
 }
 
 type GitHubRepositories []GitHubRepository

@@ -2,39 +2,40 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"time"
 )
 
-// Iterates to fetch all the repos
-func FetchBitbucketRepos(user string, password string, workspace string) []BitbucketRepository {
+func FetchBitbucketRepos(user, password, workspace string) ([]BitbucketRepository, error) {
 	var repositories []BitbucketRepository
 	url := "https://api.bitbucket.org/2.0/repositories/" + workspace + "?pagelen=100"
 	for url != "" {
-		repoPage := fetchBitbucketReposPage(user, password, url)
-		repositories = append(repositories, repoPage.Values...)
-		url = repoPage.Next
+		page, err := fetchBitbucketReposPage(user, password, url)
+		if err != nil {
+			return nil, err
+		}
+		repositories = append(repositories, page.Values...)
+		url = page.Next
 	}
-	return repositories
+	return repositories, nil
 }
 
-// Fetches an individual page of repos
-func fetchBitbucketReposPage(user, password, url string) BitbucketRepositoriesResponse {
-	var bitbucketResponse BitbucketRepositoriesResponse
-	client := http.Client{}
+func fetchBitbucketReposPage(user, password, url string) (BitbucketRepositoriesResponse, error) {
+	var page BitbucketRepositoriesResponse
 	req, err := http.NewRequest("GET", url, nil)
-	checkErr(err)
+	if err != nil {
+		return page, err
+	}
 	req.SetBasicAuth(user, password)
 	req.Header.Set("Accept", "application/json")
-	resp, err := client.Do(req)
-	checkErr(err)
-	defer resp.Body.Close()
-	bodyText, err := io.ReadAll(resp.Body)
-	checkErr(err)
-	err = json.Unmarshal(bodyText, &bitbucketResponse)
-	checkErr(err)
-	return bitbucketResponse
+	body, _, err := fetchAPI(req)
+	if err != nil {
+		return page, err
+	}
+	if err := json.Unmarshal(body, &page); err != nil {
+		return page, err
+	}
+	return page, nil
 }
 
 type BitbucketRepositoriesResponse struct {

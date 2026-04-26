@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +12,63 @@ import (
 	"sync"
 	"time"
 )
+
+// fetchAPI performs the HTTP request, validates the status, and returns the
+// body plus the URL extracted from a `Link: <...>; rel="next"` header (empty
+// string if absent). Bitbucket carries pagination in the body, so callers there
+// ignore the returned next-link.
+func fetchAPI(req *http.Request) ([]byte, string, error) {
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("%s %s: %s: %s", req.Method, req.URL, resp.Status, string(body))
+	}
+	return body, parseNextLink(resp.Header.Get("Link")), nil
+}
+
+func parseNextLink(header string) string {
+	for _, link := range strings.Split(header, ",") {
+		parts := strings.Split(strings.TrimSpace(link), ";")
+		if len(parts) < 2 {
+			continue
+		}
+		urlPart := strings.TrimSpace(parts[0])
+		urlPart = strings.TrimPrefix(urlPart, "<")
+		urlPart = strings.TrimSuffix(urlPart, ">")
+		for _, param := range parts[1:] {
+			if strings.TrimSpace(param) == `rel="next"` {
+				return urlPart
+			}
+		}
+	}
+	return ""
+}
+
+func processConcurrently[T any](items []T, workers int, fn func(T)) {
+	ch := make(chan T)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for item := range ch {
+				fn(item)
+			}
+		}()
+	}
+	for _, item := range items {
+		ch <- item
+	}
+	close(ch)
+	wg.Wait()
+}
 
 func mirrorGitRepo(repoDir, cloneUrl, mainBranch string) {
 	out, err := exec.Command("rm", "-rf", repoDir).CombinedOutput()
@@ -93,44 +152,37 @@ func getWorkerCount() int {
 
 func processGitHubOrg(token, org string) {
 	fmt.Printf("Processing repos in GitHub Org %v\n", org)
-	repos := FetchGitHubRepos(token, org)
-	workerCount := getWorkerCount()
-	repoCh := make(chan GitHubRepository)
-	var wg sync.WaitGroup
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for repo := range repoCh {
-				processGitHubRepo(repo)
-			}
-		}()
+	repos, err := FetchGitHubRepos(token, org)
+	if err != nil {
+		fmt.Printf("  Error fetching repos for GitHub org %v: %v\n", org, err)
+		return
 	}
-	for _, repo := range repos {
-		repoCh <- repo
-	}
-	close(repoCh)
-	wg.Wait()
+	processConcurrently(repos, getWorkerCount(), processGitHubRepo)
 }
 
 func processGitHubOrgs() {
 	ghtoken := os.Getenv("GHTOKEN")
 	if ghtoken == "" {
 		fmt.Println("GHTOKEN is not set, skipping GitHub repositories")
+		return
+	}
+	fmt.Println("GHTOKEN is set, processing GitHub repositories")
+	var ghorgs []string
+	ghorg := os.Getenv("GHORG")
+	if ghorg != "" {
+		fmt.Printf("GHORG is set, processing selected GitHub orgs\n")
+		ghorgs = strings.Split(ghorg, ",")
 	} else {
-		fmt.Println("GHTOKEN is set, processing GitHub repositories")
-		var ghorgs []string
-		ghorg := os.Getenv("GHORG")
-		if ghorg != "" {
-			fmt.Printf("GHORG is set, processing selected GitHub orgs\n")
-			ghorgs = strings.Split(ghorg, ",")
-		} else {
-			fmt.Printf("GHORG is not set, processing all GitHub orgs\n")
-			ghorgs = FetchGitHubOrganisations(ghtoken)
+		fmt.Printf("GHORG is not set, processing all GitHub orgs\n")
+		var err error
+		ghorgs, err = FetchGitHubOrganisations(ghtoken)
+		if err != nil {
+			fmt.Printf("Error fetching GitHub organisations: %v\n", err)
+			return
 		}
-		for _, ghorg := range ghorgs {
-			processGitHubOrg(ghtoken, ghorg)
-		}
+	}
+	for _, ghorg := range ghorgs {
+		processGitHubOrg(ghtoken, ghorg)
 	}
 }
 
@@ -155,24 +207,14 @@ func processBitBucketRepo(workspace string, repo BitbucketRepository) {
 
 func processBitBucketWorkspace(bbUser, bbAppPass, bbWorkspace string) {
 	fmt.Printf("Processing BitBucket workspace %v\n", bbWorkspace)
-	repos := FetchBitbucketRepos(bbUser, bbAppPass, bbWorkspace)
-	workerCount := getWorkerCount()
-	repoCh := make(chan BitbucketRepository)
-	var wg sync.WaitGroup
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for repo := range repoCh {
-				processBitBucketRepo(bbWorkspace, repo)
-			}
-		}()
+	repos, err := FetchBitbucketRepos(bbUser, bbAppPass, bbWorkspace)
+	if err != nil {
+		fmt.Printf("  Error fetching repos for BitBucket workspace %v: %v\n", bbWorkspace, err)
+		return
 	}
-	for _, repo := range repos {
-		repoCh <- repo
-	}
-	close(repoCh)
-	wg.Wait()
+	processConcurrently(repos, getWorkerCount(), func(repo BitbucketRepository) {
+		processBitBucketRepo(bbWorkspace, repo)
+	})
 }
 
 func processBitBucketWorkspaces() {
@@ -182,19 +224,24 @@ func processBitBucketWorkspaces() {
 
 	if bbuser == "" || bbapppass == "" {
 		fmt.Println("BBUSER and/or BBAPPPASS not set, skipping BitBucket repositories")
+		return
+	}
+	fmt.Println("BBUSER and BBAPPPASS are set, processing BitBucket repositories")
+	var bbWorkspaces []string
+	if bborg == "" {
+		fmt.Println("BBORG is not set, processing all BitBucket Workspaces")
+		var err error
+		bbWorkspaces, err = FetchBitBucketOrganisations(bbuser, bbapppass)
+		if err != nil {
+			fmt.Printf("Error fetching BitBucket workspaces: %v\n", err)
+			return
+		}
 	} else {
-		fmt.Println("BBUSER and BBAPPPASS are set, processing BitBucket repositories")
-		var bbWorkspaces []string
-		if bborg == "" {
-			fmt.Println("BBORG is not set, processing all BitBucket Workspaces")
-			bbWorkspaces = FetchBitBucketOrganisations(bbuser, bbapppass)
-		} else {
-			fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
-			bbWorkspaces = strings.Split(bborg, ",")
-		}
-		for _, bbWorkspace := range bbWorkspaces {
-			processBitBucketWorkspace(bbuser, bbapppass, bbWorkspace)
-		}
+		fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
+		bbWorkspaces = strings.Split(bborg, ",")
+	}
+	for _, bbWorkspace := range bbWorkspaces {
+		processBitBucketWorkspace(bbuser, bbapppass, bbWorkspace)
 	}
 }
 

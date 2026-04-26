@@ -2,38 +2,42 @@ package main
 
 import (
     "encoding/json"
-    "io"
     "net/http"
     "time"
 )
 
-func FetchBitBucketOrganisations(user, password string) []string {
-    var organisations []string
+func FetchBitBucketOrganisations(user, password string) ([]string, error) {
+    var slugs []string
     url := "https://api.bitbucket.org/2.0/workspaces?pagelen=100"
     for url != "" {
-        orgPage := FetchBitbucketPage(user, password, url)
-        for _, organisation := range orgPage.Values {
-            organisations = append(organisations, organisation.Slug)
+        page, err := fetchBitbucketOrgsPage(user, password, url)
+        if err != nil {
+            return nil, err
         }
-        url = orgPage.Next
+        for _, org := range page.Values {
+            slugs = append(slugs, org.Slug)
+        }
+        url = page.Next
     }
-    return organisations
+    return slugs, nil
 }
 
-func FetchBitbucketPage(user, password, url string) BitBucketOrganisationsResponse {
-    var bitbucketOrganisations BitBucketOrganisationsResponse
-    client := http.Client{}
+func fetchBitbucketOrgsPage(user, password, url string) (BitBucketOrganisationsResponse, error) {
+    var page BitBucketOrganisationsResponse
     req, err := http.NewRequest("GET", url, nil)
-    checkErr(err)
+    if err != nil {
+        return page, err
+    }
     req.SetBasicAuth(user, password)
     req.Header.Set("Accept", "application/json")
-    resp, err := client.Do(req)
-    checkErr(err)
-    defer resp.Body.Close()
-    bodyText, err := io.ReadAll(resp.Body)
-    checkErr(err)
-    json.Unmarshal(bodyText, &bitbucketOrganisations)
-    return bitbucketOrganisations
+    body, _, err := fetchAPI(req)
+    if err != nil {
+        return page, err
+    }
+    if err := json.Unmarshal(body, &page); err != nil {
+        return page, err
+    }
+    return page, nil
 }
 
 type BitBucketOrganisationsResponse struct {
