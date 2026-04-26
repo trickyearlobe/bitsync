@@ -52,6 +52,16 @@ If both are set, `BBEMAIL`+`BBTOKEN` wins.
 * Under `Access tokens` (or `Preferences > Access tokens`) create a personal access token with the `read_api` and `read_repository` scopes
 * For self-hosted GitLab instances, set `GLURL` to your instance base URL (e.g. `https://gitlab.example.com`); it defaults to `https://gitlab.com`
 
+## How bitsync handles your existing repos
+
+If a repo's working directory already exists, bitsync updates it without disturbing you:
+
+* Your current branch is preserved — even if it isn't the repo's default branch
+* Uncommitted changes (including untracked files) are stashed before the sync and popped after
+* The default branch is force-reset to match `origin/<default>` on every run
+* If `git stash pop` ever conflicts (only possible if you were editing the default branch with changes that overlap origin), your work is left in `git stash list` rather than lost
+* Repos in detached-HEAD state are skipped, with a log line, rather than guessed at
+
 ## Bare mirroring (optional)
 
 If `BITSYNC_MIRROR` is set to `true` then cloning will happen with the `--mirror` git option. This has the effects
