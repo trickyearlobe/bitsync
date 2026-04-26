@@ -186,7 +186,7 @@ func syncGitRepo(repoDir, gitUrl, mainBranch string) {
 		}
 	}()
 
-	if out, err := git(repoDir, "fetch", "--all", "--prune"); err != nil {
+	if out, err := git(repoDir, "fetch", "--prune", "origin"); err != nil {
 		fmt.Printf("  Error during fetch %s:\n%s\n", gitUrl, out)
 		return
 	}
