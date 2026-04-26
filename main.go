@@ -167,17 +167,20 @@ func processGitHubRepo(repo GitHubRepository) {
 	syncGitRepo(gitHubRepoPath, repo.SSHUrl, repo.DefaultBranch)
 }
 
-func getWorkerCount() int {
-	workersStr := os.Getenv("BITSYNC_WORKERS")
-	if workersStr == "" {
-		return 6
+func getEnvWorkers(name string, defaultValue int) int {
+	s := os.Getenv(name)
+	if s == "" {
+		return defaultValue
 	}
-	workers, err := strconv.Atoi(workersStr)
-	if err != nil || workers < 1 {
-		return 4
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 {
+		return defaultValue
 	}
-	return workers
+	return n
 }
+
+func getWorkerCount() int    { return getEnvWorkers("BITSYNC_WORKERS", 6) }
+func getOrgWorkerCount() int { return getEnvWorkers("BITSYNC_ORG_WORKERS", 2) }
 
 func processGitHubOrg(token, org string) {
 	fmt.Printf("Processing repos in GitHub Org %v\n", org)
@@ -210,9 +213,9 @@ func processGitHubOrgs() {
 			return
 		}
 	}
-	for _, ghorg := range ghorgs {
-		processGitHubOrg(ghtoken, ghorg)
-	}
+	processConcurrently(ghorgs, getOrgWorkerCount(), func(org string) {
+		processGitHubOrg(ghtoken, org)
+	})
 }
 
 func processBitBucketRepo(workspace string, repo BitbucketRepository) {
@@ -274,9 +277,9 @@ func processBitBucketWorkspaces() {
 		fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
 		bbWorkspaces = strings.Split(bborg, ",")
 	}
-	for _, bbWorkspace := range bbWorkspaces {
-		processBitBucketWorkspace(bbuser, bbapppass, bbWorkspace)
-	}
+	processConcurrently(bbWorkspaces, getOrgWorkerCount(), func(workspace string) {
+		processBitBucketWorkspace(bbuser, bbapppass, workspace)
+	})
 }
 
 func main() {
