@@ -27,9 +27,14 @@ Finally, make sure you have an up to date command line version of `git` installe
 ## Configuring Bitbucket for access
 
 * In BitBucket WebUI click the gear icon and select `Personal Bitbucket settings`
-* In `Account settings`, make a note of your `username` under Bitbucket Profile Settings. It is usually different to your eMail.
 * In `SSH keys`, upload your SSH public key to enable GIT to authenticate with bitbucket over SSH (use `ssh-keygen` if you don't have one in `~/.ssh/id_rsa.pub` or similar)
-* In `App passwords` create and copy an App password which has read rights to account, workspace membership, projects and repositories so that we can autodiscover your repos.
+
+Then pick **one** of the API auth methods below:
+
+* **API token (recommended).** From your Atlassian account at `id.atlassian.com`, create an API token with scopes covering account, workspace membership, projects and repositories (read). Use it with `BBEMAIL` (your Atlassian login email) and `BBTOKEN`.
+* **App password (legacy, being deprecated).** In `Account settings` make a note of your Bitbucket `username` (usually different to your email). In `App passwords` create one with read rights to account, workspace membership, projects and repositories. Use it with `BBUSER` and `BBAPPPASS`.
+
+If both are set, `BBEMAIL`+`BBTOKEN` wins.
 
 ## Configuring Github for access
 
@@ -64,14 +69,22 @@ This is effectively a full archive of the repo, but it cannot be used for normal
 Pass the credentials, and optional org lists, as environment variables and sync your repos.
 
 ```bash
-# For Bitbucket
-export BBUSER=ebeneezer
+# For Bitbucket — pick ONE of these auth pairs
+export BBEMAIL=ebeneezer@example.com           # API token auth (recommended)
+export BBTOKEN=ATATT3xFfGF0...
+# or
+export BBUSER=ebeneezer                        # legacy app password auth
 export BBAPPPASS=iurfhiuhfIUHFIEUiuehfeuiwF8734Jjhewjfew
+
 export BBORG="nerds-org,jocks-org" # Optional comma seperated list of BB Orgs with no spaces
 
 # For GitHub
 export GHTOKEN=ghr-ieufwhiuehfuwehfiuehfuiwhqiuefh
-export GHORG="nerds-org,jocks-org" # Optional comma seperated list of GH Orgs with no spaces
+export GHORG="nerds-org,jocks-org" # Optional comma seperated list of GH Orgs/users with no spaces
+
+# Optional: tune concurrency
+export BITSYNC_WORKERS=6      # repos per org processed in parallel (default 6)
+export BITSYNC_ORG_WORKERS=2  # orgs/workspaces processed in parallel (default 2)
 
 # Now get syncing
 bitsync

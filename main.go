@@ -254,31 +254,42 @@ func processBitBucketWorkspace(bbUser, bbAppPass, bbWorkspace string) {
 	})
 }
 
-func processBitBucketWorkspaces() {
-	bbuser := os.Getenv("BBUSER")
-	bbapppass := os.Getenv("BBAPPPASS")
-	bborg := os.Getenv("BBORG")
+// resolveBitbucketAuth picks credentials for Bitbucket Basic auth, preferring
+// the newer BBEMAIL + BBTOKEN pair (Atlassian API tokens) and falling back to
+// the legacy BBUSER + BBAPPPASS app-password pair. App passwords are being
+// deprecated by Atlassian; both paths are accepted during the transition.
+func resolveBitbucketAuth() (identity, secret, method string, ok bool) {
+	if email, token := os.Getenv("BBEMAIL"), os.Getenv("BBTOKEN"); email != "" && token != "" {
+		return email, token, "BBEMAIL+BBTOKEN", true
+	}
+	if user, pass := os.Getenv("BBUSER"), os.Getenv("BBAPPPASS"); user != "" && pass != "" {
+		return user, pass, "BBUSER+BBAPPPASS", true
+	}
+	return "", "", "", false
+}
 
-	if bbuser == "" || bbapppass == "" {
-		fmt.Println("BBUSER and/or BBAPPPASS not set, skipping BitBucket repositories")
+func processBitBucketWorkspaces() {
+	identity, secret, method, ok := resolveBitbucketAuth()
+	if !ok {
+		fmt.Println("Neither BBEMAIL+BBTOKEN nor BBUSER+BBAPPPASS set, skipping BitBucket repositories")
 		return
 	}
-	fmt.Println("BBUSER and BBAPPPASS are set, processing BitBucket repositories")
+	fmt.Printf("Processing BitBucket repositories using %s\n", method)
 	var bbWorkspaces []string
-	if bborg == "" {
+	if bborg := os.Getenv("BBORG"); bborg != "" {
+		fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
+		bbWorkspaces = strings.Split(bborg, ",")
+	} else {
 		fmt.Println("BBORG is not set, processing all BitBucket Workspaces")
 		var err error
-		bbWorkspaces, err = FetchBitBucketOrganisations(bbuser, bbapppass)
+		bbWorkspaces, err = FetchBitBucketOrganisations(identity, secret)
 		if err != nil {
 			fmt.Printf("Error fetching BitBucket workspaces: %v\n", err)
 			return
 		}
-	} else {
-		fmt.Println("BBORG is set, processing selected BitBucket Workspaces")
-		bbWorkspaces = strings.Split(bborg, ",")
 	}
 	processConcurrently(bbWorkspaces, getOrgWorkerCount(), func(workspace string) {
-		processBitBucketWorkspace(bbuser, bbapppass, workspace)
+		processBitBucketWorkspace(identity, secret, workspace)
 	})
 }
 
