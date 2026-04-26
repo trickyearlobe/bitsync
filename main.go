@@ -107,40 +107,95 @@ func mirrorGitRepo(repoDir, cloneUrl, mainBranch string) {
 	}
 }
 
+func git(repoDir string, args ...string) (string, error) {
+	cmdArgs := append([]string{"-C", repoDir}, args...)
+	out, err := exec.Command("git", cmdArgs...).CombinedOutput()
+	return string(out), err
+}
+
+// syncGitRepo updates a working tree's main branch to match origin without
+// silently destroying the user's in-progress work. If the user is on a
+// different branch, that branch is left untouched. If the working tree is
+// dirty, changes are stashed for the duration of the sync and popped after.
 func syncGitRepo(repoDir, gitUrl, mainBranch string) {
-	mirror := os.Getenv("BITSYNC_MIRROR")
-	if mirror == "true" {
+	if os.Getenv("BITSYNC_MIRROR") == "true" {
 		mirrorGitRepo(repoDir, gitUrl, mainBranch)
 		return
 	}
-	// fmt.Printf("  Processing git repo %s from %s\n", repoDir, gitUrl)
+
 	if _, err := os.Stat(repoDir); err != nil {
 		out, err := exec.Command("git", "clone", gitUrl, repoDir).CombinedOutput()
 		if err != nil {
 			fmt.Printf("  Error during clone of %s:\n%s\n", gitUrl, string(out))
 			return
-		} else {
-			fmt.Printf("  Clone successful for %s\n", gitUrl)
+		}
+		fmt.Printf("  Clone successful for %s\n", gitUrl)
+		return
+	}
+
+	if mainBranch == "" {
+		fmt.Printf("  Skipping %s: no default branch reported\n", repoDir)
+		return
+	}
+
+	branchOut, err := git(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		fmt.Printf("  Error reading current branch in %s:\n%s\n", repoDir, branchOut)
+		return
+	}
+	currentBranch := strings.TrimSpace(branchOut)
+	if currentBranch == "HEAD" {
+		fmt.Printf("  Skipping %s: detached HEAD state\n", repoDir)
+		return
+	}
+
+	statusOut, err := git(repoDir, "status", "--porcelain")
+	if err != nil {
+		fmt.Printf("  Error reading status in %s:\n%s\n", repoDir, statusOut)
+		return
+	}
+	dirty := strings.TrimSpace(statusOut) != ""
+
+	var stashed bool
+	if dirty {
+		out, err := git(repoDir, "stash", "push", "--include-untracked", "--message", "bitsync auto-stash")
+		if err != nil {
+			fmt.Printf("  Error stashing local changes in %s:\n%s\n", repoDir, out)
+			return
+		}
+		stashed = !strings.Contains(out, "No local changes to save")
+	}
+
+	defer func() {
+		if currentBranch != mainBranch {
+			if out, err := git(repoDir, "checkout", currentBranch); err != nil {
+				fmt.Printf("  Error returning to branch %s in %s:\n%s\n", currentBranch, repoDir, out)
+				return
+			}
+		}
+		if stashed {
+			if out, err := git(repoDir, "stash", "pop"); err != nil {
+				fmt.Printf("  Could not pop bitsync auto-stash in %s — your changes remain in `git stash list`:\n%s\n", repoDir, out)
+			}
+		}
+	}()
+
+	if out, err := git(repoDir, "fetch", "--all", "--prune"); err != nil {
+		fmt.Printf("  Error during fetch %s:\n%s\n", gitUrl, out)
+		return
+	}
+	fmt.Printf("  Fetch successful for %s\n", gitUrl)
+
+	if currentBranch != mainBranch {
+		if out, err := git(repoDir, "checkout", mainBranch); err != nil {
+			fmt.Printf("  Error during checkout %s in %s:\n%s\n", mainBranch, repoDir, out)
 			return
 		}
 	}
-	out, err := exec.Command("git", "-C", repoDir, "reset", "--hard").CombinedOutput()
-	if err != nil {
-		fmt.Printf("  Error during hard reset in %s:\n%s\n", repoDir, string(out))
-	}
-	out, err = exec.Command("git", "-C", repoDir, "fetch", "--all", "--prune").CombinedOutput()
-	if err != nil {
-		fmt.Printf("  Error during fetch %s:\n%s\n ", gitUrl, string(out))
-	} else {
-		fmt.Printf("  Fetch successful for %s\n", gitUrl)
-	}
-	out, err = exec.Command("git", "-C", repoDir, "checkout", mainBranch).CombinedOutput()
-	if err != nil {
-		fmt.Printf("  Error during checkout %s in %s:\n%s\n", mainBranch, repoDir, string(out))
-	}
-	out, err = exec.Command("git", "-C", repoDir, "pull").CombinedOutput()
-	if err != nil {
-		fmt.Printf("  Error during pull in %s:\n%s\n", repoDir, string(out))
+
+	if out, err := git(repoDir, "reset", "--hard", "origin/"+mainBranch); err != nil {
+		fmt.Printf("  Error force-updating %s in %s:\n%s\n", mainBranch, repoDir, out)
+		return
 	}
 }
 
