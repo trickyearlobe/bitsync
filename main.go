@@ -146,7 +146,10 @@ func syncGitRepo(repoDir, gitUrl, mainBranch string) {
 
 func processGitHubRepo(repo GitHubRepository) {
 	homeDir, err := os.UserHomeDir()
-	checkErr(err)
+	if err != nil {
+		fmt.Printf("  Error resolving home directory for %v: %v\n", repo.FullName, err)
+		return
+	}
 	var gitHubRepoPath, gitHubOrgPath string
 	mirror := os.Getenv("BITSYNC_MIRROR")
 	if mirror == "true" {
@@ -157,8 +160,10 @@ func processGitHubRepo(repo GitHubRepository) {
 		gitHubOrgPath = filepath.Join(homeDir, "repos", "github", repo.Owner.Login)
 		gitHubRepoPath = filepath.Join(homeDir, "repos", "github", repo.Owner.Login, repo.Name)
 	}
-	err = os.MkdirAll(gitHubOrgPath, 0750)
-	checkErr(err)
+	if err := os.MkdirAll(gitHubOrgPath, 0750); err != nil {
+		fmt.Printf("  Error creating %s: %v\n", gitHubOrgPath, err)
+		return
+	}
 	syncGitRepo(gitHubRepoPath, repo.SSHUrl, repo.DefaultBranch)
 }
 
@@ -212,7 +217,10 @@ func processGitHubOrgs() {
 
 func processBitBucketRepo(workspace string, repo BitbucketRepository) {
 	homeDir, err := os.UserHomeDir()
-	checkErr(err)
+	if err != nil {
+		fmt.Printf("  Error resolving home directory for %v: %v\n", repo.FullName, err)
+		return
+	}
 	var BitBucketRepoPath, BitBucketProjectPath string
 	mirror := os.Getenv("BITSYNC_MIRROR")
 	if mirror == "true" {
@@ -224,8 +232,10 @@ func processBitBucketRepo(workspace string, repo BitbucketRepository) {
 		BitBucketRepoPath = filepath.Join(homeDir, "repos", "bitbucket", workspace, repo.Project.Key, repo.Slug)
 	}
 	BitBucketCloneUrl := "git@bitbucket.org:" + workspace + "/" + repo.Slug
-	err = os.MkdirAll(BitBucketProjectPath, 0750)
-	checkErr(err)
+	if err := os.MkdirAll(BitBucketProjectPath, 0750); err != nil {
+		fmt.Printf("  Error creating %s: %v\n", BitBucketProjectPath, err)
+		return
+	}
 	syncGitRepo(BitBucketRepoPath, BitBucketCloneUrl, repo.Mainbranch.Name)
 }
 
@@ -266,13 +276,6 @@ func processBitBucketWorkspaces() {
 	}
 	for _, bbWorkspace := range bbWorkspaces {
 		processBitBucketWorkspace(bbuser, bbapppass, bbWorkspace)
-	}
-}
-
-func checkErr(err error) {
-	if err != nil {
-		fmt.Printf("An error occured. %v\n", err)
-		os.Exit(1)
 	}
 }
 
