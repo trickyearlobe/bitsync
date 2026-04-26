@@ -15,6 +15,7 @@ Thumbs.db
 
 # Binaries for programs and plugins
 bitsync
+bin/
 *.exe
 *.exe~
 *.dll
@@ -29,3 +30,6 @@ bitsync
 
 # Go workspace file
 go.work
+
+# Claude Code local state
+.claude/

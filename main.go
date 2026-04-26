@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+// Populated at build time via -ldflags "-X main.version=... -X main.commit=...".
+var (
+	version = "dev"
+	commit  = "unknown"
+)
+
 type apiError struct {
 	Method     string
 	URL        string
@@ -411,7 +417,7 @@ func processGitLabGroups() {
 
 func main() {
 	startTime := time.Now()
-	fmt.Printf("Starting BitSync process at %v\n", startTime)
+	fmt.Printf("Starting BitSync %s (%s) at %v\n", version, commit, startTime)
 	processGitHubOrgs()
 	processGitLabGroups()
 	processBitBucketWorkspaces()
