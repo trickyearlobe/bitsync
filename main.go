@@ -192,6 +192,17 @@ func syncGitRepo(repoDir, gitUrl, mainBranch string) {
 	}
 	fmt.Printf("  Fetch successful for %s\n", gitUrl)
 
+	// Refuse the force-reset if local <mainBranch> contains commits that
+	// origin/<mainBranch> doesn't. `merge-base --is-ancestor A B` exits 0 iff
+	// A is an ancestor of B, so non-zero means local is ahead or diverged —
+	// in which case `reset --hard origin/<mainBranch>` would silently
+	// discard those commits. (This is the case that bit us in bitsync's
+	// own repo before all our work was pushed.)
+	if _, err := git(repoDir, "merge-base", "--is-ancestor", mainBranch, "origin/"+mainBranch); err != nil {
+		fmt.Printf("  Refusing to force-reset %s in %s: local has commits not on origin/%s\n", mainBranch, repoDir, mainBranch)
+		return
+	}
+
 	if currentBranch != mainBranch {
 		if out, err := git(repoDir, "checkout", mainBranch); err != nil {
 			fmt.Printf("  Error during checkout %s in %s:\n%s\n", mainBranch, repoDir, out)
