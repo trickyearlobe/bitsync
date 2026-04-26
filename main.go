@@ -293,10 +293,72 @@ func processBitBucketWorkspaces() {
 	})
 }
 
+func processGitLabProject(project GitLabProject) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("  Error resolving home directory for %v: %v\n", project.PathWithNamespace, err)
+		return
+	}
+	var projectPath, namespacePath string
+	mirror := os.Getenv("BITSYNC_MIRROR")
+	if mirror == "true" {
+		namespacePath = filepath.Join(homeDir, "mirrors", "gitlab", project.Namespace.FullPath)
+		projectPath = filepath.Join(homeDir, "mirrors", "gitlab", project.Namespace.FullPath, project.Path)
+	} else {
+		namespacePath = filepath.Join(homeDir, "repos", "gitlab", project.Namespace.FullPath)
+		projectPath = filepath.Join(homeDir, "repos", "gitlab", project.Namespace.FullPath, project.Path)
+	}
+	if err := os.MkdirAll(namespacePath, 0750); err != nil {
+		fmt.Printf("  Error creating %s: %v\n", namespacePath, err)
+		return
+	}
+	syncGitRepo(projectPath, project.SSHUrlToRepo, project.DefaultBranch)
+}
+
+func processGitLabGroup(baseURL, token, name string) {
+	fmt.Printf("Processing projects in GitLab group %v\n", name)
+	projects, err := FetchGitLabProjects(baseURL, token, name)
+	if err != nil {
+		fmt.Printf("  Error fetching projects for GitLab group %v: %v\n", name, err)
+		return
+	}
+	processConcurrently(projects, getWorkerCount(), processGitLabProject)
+}
+
+func processGitLabGroups() {
+	gltoken := os.Getenv("GLTOKEN")
+	if gltoken == "" {
+		fmt.Println("GLTOKEN is not set, skipping GitLab repositories")
+		return
+	}
+	fmt.Println("GLTOKEN is set, processing GitLab repositories")
+	baseURL := strings.TrimRight(os.Getenv("GLURL"), "/")
+	if baseURL == "" {
+		baseURL = "https://gitlab.com"
+	}
+	var glgroups []string
+	if glgroup := os.Getenv("GLGROUP"); glgroup != "" {
+		fmt.Println("GLGROUP is set, processing selected GitLab groups")
+		glgroups = strings.Split(glgroup, ",")
+	} else {
+		fmt.Println("GLGROUP is not set, processing all GitLab groups")
+		var err error
+		glgroups, err = FetchGitLabGroups(baseURL, gltoken)
+		if err != nil {
+			fmt.Printf("Error fetching GitLab groups: %v\n", err)
+			return
+		}
+	}
+	processConcurrently(glgroups, getOrgWorkerCount(), func(group string) {
+		processGitLabGroup(baseURL, gltoken, group)
+	})
+}
+
 func main() {
 	startTime := time.Now()
 	fmt.Printf("Starting BitSync process at %v\n", startTime)
 	processGitHubOrgs()
+	processGitLabGroups()
 	processBitBucketWorkspaces()
 	endTime := time.Now()
 	fmt.Printf("Finished BitSync process at %v\n", endTime)

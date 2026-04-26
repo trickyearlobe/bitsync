@@ -1,11 +1,12 @@
 # BitSync
 
-A simple utility to sync git repos from your hosted BitBucket and GitHub private organisations to your local machine.
+A simple utility to sync git repos from your hosted BitBucket, GitHub and GitLab organisations to your local machine.
 
 * The utility can discover the organisations you have access to
 * Repos are placed in
   * `$HOME/repos/bitbucket/<bitbucket workspaces>/<projects>/<repos>`
   * `$HOME/repos/github/<github organisations>/<repos>`
+  * `$HOME/repos/gitlab/<gitlab groups (incl. nested subgroups)>/<projects>`
 
 ## Installing
 First of all, install GO (aka Golang) if you don't already have it.
@@ -44,6 +45,13 @@ If both are set, `BBEMAIL`+`BBTOKEN` wins.
 * Scroll down in `settings` to `Developer Settings` and create a `personal access token (classic)`
 * Grant the token sufficient rights to access your github orgs/repos and configure SSO if necessary (just like we did for the SSH key)
 
+## Configuring GitLab for access
+
+* In GitLab WebUI click your avatar and select `Edit profile`, then `SSH Keys`
+* Add your SSH public key so GIT can authenticate with GitLab over SSH
+* Under `Access tokens` (or `Preferences > Access tokens`) create a personal access token with the `read_api` and `read_repository` scopes
+* For self-hosted GitLab instances, set `GLURL` to your instance base URL (e.g. `https://gitlab.example.com`); it defaults to `https://gitlab.com`
+
 ## Bare mirroring (optional)
 
 If `BITSYNC_MIRROR` is set to `true` then cloning will happen with the `--mirror` git option. This has the effects
@@ -81,6 +89,11 @@ export BBORG="nerds-org,jocks-org" # Optional comma seperated list of BB Orgs wi
 # For GitHub
 export GHTOKEN=ghr-ieufwhiuehfuwehfiuehfuiwhqiuefh
 export GHORG="nerds-org,jocks-org" # Optional comma seperated list of GH Orgs/users with no spaces
+
+# For GitLab
+export GLTOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
+export GLGROUP="nerds-group,nerds-group/sub" # Optional comma seperated list of GL groups/users with no spaces
+export GLURL=https://gitlab.com               # Optional, defaults to https://gitlab.com
 
 # Optional: tune concurrency
 export BITSYNC_WORKERS=6      # repos per org processed in parallel (default 6)

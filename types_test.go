@@ -52,3 +52,34 @@ func TestFetchRepos(t *testing.T) {
         t.Fatalf(`Length of repositories is %v`, len(organisations))
     }
 }
+
+func gitlabBaseURL() string {
+    if u := os.Getenv("GLURL"); u != "" {
+        return u
+    }
+    return "https://gitlab.com"
+}
+
+func TestFetchGitLabGroups(t *testing.T) {
+    groups, err := FetchGitLabGroups(gitlabBaseURL(), os.Getenv("GLTOKEN"))
+    if err != nil {
+        t.Fatalf("FetchGitLabGroups: %v", err)
+    }
+    if len(groups) < 1 {
+        t.Fatalf(`Length of groups is %v`, len(groups))
+    }
+}
+
+func TestFetchGitLabProjects(t *testing.T) {
+    groups, err := FetchGitLabGroups(gitlabBaseURL(), os.Getenv("GLTOKEN"))
+    if err != nil {
+        t.Fatalf("FetchGitLabGroups: %v", err)
+    }
+    projects, err := FetchGitLabProjects(gitlabBaseURL(), os.Getenv("GLTOKEN"), groups[0])
+    if err != nil {
+        t.Fatalf("FetchGitLabProjects: %v", err)
+    }
+    if len(projects) < 1 {
+        t.Fatalf(`Length of projects is %v`, len(projects))
+    }
+}
